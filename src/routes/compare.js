@@ -53,7 +53,7 @@ router.post('/compare', async (req, res) => {
         if (validUrls.length === 0) return res.status(400).json({ error: 'No valid URLs provided' });
 
         const allResults = [];
-        const concurrencyLimit = 10;
+        const concurrencyLimit = 2;
         const batches = [];
 
         for (let i = 0; i < validUrls.length; i += concurrencyLimit) {
