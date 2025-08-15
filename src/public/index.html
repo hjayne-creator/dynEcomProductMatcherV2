@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veeve - Run Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Veeve Product Comparison</h1>
+        <div class="card">
+            <h2>Run Project</h2>
+            <form id="sheetForm">
+                <label for="sheetUrl">Google Sheets URL:</label>
+                <input 
+                    type="url" 
+                    id="sheetUrl" 
+                    placeholder="https://docs.google.com/spreadsheets/d/..." 
+                    required
+                >
+                <button type="submit">Run Comparison</button>
+            </form>
+            <div id="status" class="status"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

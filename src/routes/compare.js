@@ -9,6 +9,7 @@ const { compareImages } = require('../utils/imageComparator');
 const { readPublicSheet } = require('../utils/publicSheetReader');
 const { extractLdAttributes } = require('../utils/jsonLdParser');
 const { generateCSV, createOutputData } = require('../utils/csvGenerator');
+const { convertCookiesPartitionKeyFromPuppeteerToCdp } = require('puppeteer');
 
 router.post('/compare', async (req, res) => {
 
@@ -121,6 +122,7 @@ router.post('/compare', async (req, res) => {
 
                         return { baseProduct, competitors };
                     } catch (error) {
+                        console.log(error)
                         console.error(`[ERROR] Failed processing URL: ${url}`, error.message);
                         return null;
                     }
@@ -141,15 +143,24 @@ router.post('/compare', async (req, res) => {
             return res.status(404).json({ error: 'No valid results generated' });
         }
 
-        const csvPath = generateCSV(outputData, `results_${Date.now()}.csv`);
-        console.log(`[DONE] CSV file created: ${csvPath}`);
+        // const csvPath = generateCSV(outputData, `results_${Date.now()}.csv`);
+        // console.log(`[DONE] CSV file created: ${csvPath}`);
 
-        console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
+        // console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
 
-        res.download(csvPath, (err) => {
-            if (err) console.error('[ERROR] Download failed:', err);
-        });
+        // res.download(csvPath, (err) => {
+        //     if (err) console.error('[ERROR] Download failed:', err);
+        // });
+        const filename = generateCSV(outputData, `results_${Date.now()}.csv`);
 
+        if (req.query.format === 'json') {
+            res.json({ success: true, filename });
+        } else {
+            const filePath = path.join(__dirname, '../output', filename);
+            res.download(filePath, (err) => {
+                if (err) console.error('[ERROR] Download failed:', err);
+            });
+        }
     } catch (error) {
         console.error('[ERROR] Internal server error:', error);
         res.status(500).json({

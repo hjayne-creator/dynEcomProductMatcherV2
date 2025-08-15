@@ -28,6 +28,7 @@ const processBatch = async (urls, batchSize = 5) => {
                     competitors: competitors.sort((a, b) => b.similarity - a.similarity)
                 });
             } catch (error) {
+                console.log(error)
                 console.error(`Failed processing ${url}:`, error);
             }
         })

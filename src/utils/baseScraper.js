@@ -13,7 +13,7 @@ const scrapeBaseProduct = async (url) => {
     const browser = await getBrowser();
     const page = await browser.newPage();
     await page.setUserAgent(process.env.USER_AGENT);
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     const image = await page.$eval('a.product-image.col-xs-12 img', img => img.src).catch(() => '');
     const title = await page.title();
