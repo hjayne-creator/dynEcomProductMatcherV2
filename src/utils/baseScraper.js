@@ -26,7 +26,7 @@ const getBrowser = async () => {
         ],
         timeout: 120000,  // Increased launch timeout
         protocolTimeout: 120000,
-        executablePath: process.env.CHROMIUM_PATH || puppeteer.executablePath()
+        executablePath: process.env.PUPPETEER_EXEC_PATH || puppeteer.executablePath()
     });
 
     return globalBrowser;
