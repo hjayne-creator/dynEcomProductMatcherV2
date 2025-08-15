@@ -2,85 +2,83 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const randomUseragent = require('random-useragent');
 
-// Add stealth plugin
 puppeteer.use(StealthPlugin());
 
-// Alternative delay function since waitForTimeout might not be available
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = ms => new Promise(res => setTimeout(res, ms));
+// ====== Shared Browser Instance ======
+let globalBrowser = null;
 
+const getBrowser = async () => {
+    if (globalBrowser && globalBrowser.isConnected()) {
+        return globalBrowser;
+    }
+
+    globalBrowser = await puppeteer.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--single-process',
+            '--no-zygote',
+            '--disable-gpu',
+            `--user-agent=${randomUseragent.getRandom()}`
+        ],
+        timeout: 120000,  // Increased launch timeout
+        protocolTimeout: 120000,
+        executablePath: process.env.CHROMIUM_PATH || puppeteer.executablePath()
+    });
+
+    return globalBrowser;
+};
+
+// ====== Enhanced Scraping Function ======
 const scrapeBaseProduct = async (url) => {
-    let browser;
+    let page;
     try {
-        // Configure browser with evasion techniques
-        browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-blink-features=AutomationControlled'
-            ]
-        });
+        const browser = await getBrowser();
+        page = await browser.newPage();
 
-        const page = await browser.newPage();
+        // Configure page settings
+        await page.setJavaScriptEnabled(true);
+        await page.setDefaultNavigationTimeout(60000);
+        await page.setDefaultTimeout(30000);
 
-        // Set random user agent and realistic viewport
-        const userAgent = randomUseragent.getRandom();
-        await page.setUserAgent(userAgent);
-        await page.setViewport({
-            width: 1280 + Math.floor(Math.random() * 100),
-            height: 800 + Math.floor(Math.random() * 100)
-        });
-
-        // Remove webdriver flag
-        await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined,
-            });
-        });
-
-        // Add random delay before navigation using alternative method
-        await delay(2000 + Math.random() * 3000);
-
-        // Configure navigation with retries
-        let retries = 3;
-        let lastError;
-
-        while (retries > 0) {
+        // Navigation with robust retry
+        const navigate = async (attempt = 1) => {
             try {
                 await page.goto(url, {
-                    waitUntil: 'networkidle2',
-                    timeout: 60000,
+                    waitUntil: 'domcontentloaded',
+                    timeout: 45000,
                     referer: 'https://www.google.com/'
                 });
-                break;
-            } catch (err) {
-                lastError = err;
-                retries--;
-                if (retries === 0) throw err;
-                await delay(5000); // Using our alternative delay function
+            } catch (error) {
+                if (attempt <= 3) {
+                    await delay(2000 * attempt);
+                    return navigate(attempt + 1);
+                }
+                throw error;
             }
-        }
+        };
 
-        // Wait for content with multiple fallbacks
-        try {
-            await page.waitForSelector('a.product-image.col-xs-12 img', {
-                timeout: 15000
-            });
-        } catch {
-            await page.waitForSelector('body', { timeout: 5000 }).catch(() => { });
-        }
+        await navigate();
 
-        // Scrape data with robust error handling
+        // Content detection with fallbacks
+        await Promise.race([
+            page.waitForSelector('a.product-image.col-xs-12 img', { timeout: 10000 }),
+            page.waitForSelector('img.product-image', { timeout: 10000 }),
+            page.waitForSelector('body', { timeout: 5000 })
+        ]).catch(() => { });
+
+        // Data extraction with error protection
         const result = {
             url,
             title: await page.title(),
             metaDescription: await page.$eval('meta[name="description"]', el => el.content).catch(() => ''),
-            metaKeywords: await page.$eval('meta[name="keywords"]', el => el.content).catch(() => ''),
-            image: await page.$eval('a.product-image.col-xs-12 img', img => img.src)
-                .catch(() => page.$eval('img.product-image', img => img.src).catch(() => ''))
+            image: await page.$eval(
+                'a.product-image.col-xs-12 img, img.product-image',
+                img => img.src || img.dataset.src || ''
+            ).catch(() => '')
         };
 
         result.searchTerm = result.title;
@@ -88,11 +86,20 @@ const scrapeBaseProduct = async (url) => {
 
         return result;
     } catch (error) {
-        console.error(`Error scraping ${url}:`, error.message);
+        console.error(`[FATAL] Scrape failed for ${url}: ${error.message}`);
         return null;
     } finally {
-        if (browser) await browser.close();
+        if (page && !page.isClosed()) await page.close();
     }
 };
 
-module.exports = { scrapeBaseProduct };
+// ====== Server Cleanup Handler ======
+process.on('SIGINT', async () => {
+    if (globalBrowser) {
+        await globalBrowser.close();
+        console.log('Browser instance closed gracefully');
+    }
+    process.exit();
+});
+
+module.exports = { scrapeBaseProduct }; module.exports = { scrapeBaseProduct };
