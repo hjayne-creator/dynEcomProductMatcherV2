@@ -11,6 +11,7 @@ const { extractLdAttributes } = require('../utils/jsonLdParser');
 const { generateCSV, createOutputData } = require('../utils/csvGenerator');
 
 router.post('/compare', async (req, res) => {
+
     try {
         console.log('[INIT] Received compare request');
         const globalStart = Date.now();
