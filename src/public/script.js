@@ -13,11 +13,15 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 // Extract sheet ID from URL
                 const sheetId = extractSheetId(sheetUrl);
+                if (!sheetId) throw new Error('Invalid Google Sheets URL');
 
                 // Call backend API
                 const response = await fetch('/api/compare', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({
                         type: 'sheet',
                         sheetId
@@ -25,12 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Server error');
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Server error');
                 }
 
-                // Get CSV filename from response
+                // Parse JSON response
                 const data = await response.json();
+                if (!data || !data.filename) {
+                    throw new Error('Invalid response from server');
+                }
 
                 // Store filename for results screen
                 sessionStorage.setItem('comparisonFilename', data.filename);
@@ -64,12 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle download
         downloadButton.addEventListener('click', () => {
             if (filename) {
-                window.location.href = `/api/download?filename=${filename}`;
+                window.location.href = `/api/download/${filename}`;
             }
         });
 
         // Load and display results
-        loadResults(filename);
+        if (filename) {
+            loadResults(filename);
+        }
     }
 });
 
@@ -97,11 +106,11 @@ async function loadResults(filename) {
             const tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td>${truncateText(row.base_url, 30)}</td>
-                <td>${truncateText(row.competitor_url, 30)}</td>
-                <td>${row.similarity_score || 'N/A'}</td>
+                <td><a href="${row.base_url}" target="_blank">${truncateText(row.base_url, 30)}</a></td>
+                <td><a href="${row.competitor_url}" target="_blank">${truncateText(row.competitor_url, 30)}</a></td>
+                <td>${formatSimilarity(row.similarity_score)}</td>
                 <td>${row.brand || '-'}</td>
-                <td>${row.price || '-'}</td>
+                <td>${formatPrice(row.price)}</td>
             `;
 
             tbody.appendChild(tr);
@@ -117,4 +126,19 @@ function truncateText(text, maxLength) {
     return text.length > maxLength
         ? text.substring(0, maxLength) + '...'
         : text;
+}
+
+// Format similarity score
+function formatSimilarity(score) {
+    if (score === undefined || score === null || score === 'N/A') return 'N/A';
+    if (typeof score === 'number') return `${Math.round(score * 100)}%`;
+    return score;
+}
+
+// Format price
+function formatPrice(price) {
+    if (!price) return '-';
+    if (typeof price === 'number') return `$${price.toFixed(2)}`;
+    if (typeof price === 'string' && price.match(/\d/)) return `$${price}`;
+    return price;
 }

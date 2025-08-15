@@ -1,5 +1,4 @@
 const express = require('express');
-
 const router = express.Router();
 const { readCSV, validateURL } = require('../utils/csvReader');
 const { scrapeBaseProduct } = require('../utils/baseScraper');
@@ -8,11 +7,11 @@ const scrapeCompetitor = require('../utils/competitorScraper');
 const { compareImages } = require('../utils/imageComparator');
 const { readPublicSheet } = require('../utils/publicSheetReader');
 const { extractLdAttributes } = require('../utils/jsonLdParser');
-const { generateCSV, createOutputData } = require('../utils/csvGenerator');
-const { convertCookiesPartitionKeyFromPuppeteerToCdp } = require('puppeteer');
+const { generateCSV, createOutputData, cleanupOldFiles } = require('../utils/csvGenerator');
+const path = require("path");
+const fs = require("fs");
 
 router.post('/compare', async (req, res) => {
-
     try {
         console.log('[INIT] Received compare request');
         const globalStart = Date.now();
@@ -94,7 +93,6 @@ router.post('/compare', async (req, res) => {
                         }
                         console.log(`[SERP] ${serpResults.length} competitor URLs found for: ${url}`);
 
-
                         const competitors = await Promise.all(
                             serpResults.map(async (result) => {
                                 try {
@@ -115,7 +113,6 @@ router.post('/compare', async (req, res) => {
                                 }
                             })
                         );
-
 
                         const urlTime = (Date.now() - urlStart) / 1000;
                         console.log(`[TIME] Total time for ${url} took ${urlTime}s`);
@@ -143,22 +140,30 @@ router.post('/compare', async (req, res) => {
             return res.status(404).json({ error: 'No valid results generated' });
         }
 
-        // const csvPath = generateCSV(outputData, `results_${Date.now()}.csv`);
-        // console.log(`[DONE] CSV file created: ${csvPath}`);
+        try {
+            // Generate CSV file
+            const { filename, filePath } = await generateCSV(outputData);
 
-        // console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
+            // Clean up old files (run in background)
+            if (typeof cleanupOldFiles === 'function') {
+                cleanupOldFiles().catch(console.error);
+            }
 
-        // res.download(csvPath, (err) => {
-        //     if (err) console.error('[ERROR] Download failed:', err);
-        // });
-        const filename = generateCSV(outputData, `results_${Date.now()}.csv`);
+            console.log(`[DONE] CSV file created: ${filePath}`);
+            console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
 
-        if (req.query.format === 'json') {
-            res.json({ success: true, filename });
-        } else {
-            const filePath = path.join(__dirname, '../output', filename);
-            res.download(filePath, (err) => {
-                if (err) console.error('[ERROR] Download failed:', err);
+            // Return only filename in JSON response
+            res.json({
+                success: true,
+                filename
+            });
+
+        } catch (csvError) {
+            console.error('[ERROR] CSV generation failed:', csvError);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to generate CSV',
+                details: csvError.message
             });
         }
     } catch (error) {
@@ -166,6 +171,46 @@ router.post('/compare', async (req, res) => {
         res.status(500).json({
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+router.get('/download/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        const outputDir = path.join(__dirname, '../output');
+        const filePath = path.join(outputDir, filename);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                error: 'File not found'
+            });
+        }
+
+        // Set proper headers for file download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // Stream the file
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+            console.error('[ERROR] File stream error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to stream file'
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error('[ERROR] Download endpoint error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error'
         });
     }
 });

@@ -1,10 +1,10 @@
 # Source Code Context
 
-Generated on: 2025-08-15T15:28:05Z
+Generated on: 2025-08-15T17:44:11Z
 
 ## Repository Overview
-- Total Files: 19
-- Total Size: 39538 bytes
+- Total Files: 22
+- Total Size: 49546 bytes
 
 ## Directory Structure
 ```
@@ -16,8 +16,11 @@ example.env
 package.json
 src/
   app.js
-  output/
-    results_1754774356418.csv
+  public/
+    index.html
+    results.html
+    script.js
+    styles.css
   routes/
     compare.js
   utils/
@@ -44,7 +47,7 @@ src/
 ```
 PORT=3000
 SERP_API_KEY=b172ba38fd2e07d0e3f8d31ae5ed81b28feec6bd
-USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
 ORGANIC_LIMIT=8
 SHOPPING_LIMIT=4
 USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
@@ -219,7 +222,10 @@ IMAGGA_SECRET=6
     "image-hash": "^5.3.2",
     "imagga": "^0.1.2",
     "json2csv": "^6.0.0-alpha.2",
-    "puppeteer": "^24.16.0",
+    "puppeteer": "^24.16.2",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "random-useragent": "^0.5.0",
     "serpapi": "^2.2.1",
     "string-similarity": "^4.0.4"
   }
@@ -239,7 +245,58 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const compareRoute = require('./routes/compare');
+const path = require('path');
+const fs = require('fs');
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve results data as JSON
+app.get('/api/results', async (req, res) => {
+    try {
+        const filename = req.query.filename;
+        if (!filename) return res.status(400).json({ error: 'Filename required' });
+
+        const filePath = path.join(__dirname, 'output', filename);
+        const csvData = fs.readFileSync(filePath, 'utf8');
+
+        // Simple CSV to JSON conversion
+        const lines = csvData.split('\n');
+        const headers = lines[0].replace(/"/g, '').split(',');
+        const results = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i]) continue;
+
+            const values = lines[i].split(',');
+            const row = {};
+
+            headers.forEach((header, j) => {
+                row[header] = values[j] ? values[j].replace(/"/g, '') : '';
+            });
+
+            results.push(row);
+        }
+
+        res.json(results);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load results' });
+    }
+});
+
+// Download endpoint
+app.get('/api/download', (req, res) => {
+    const filename = req.query.filename;
+    if (!filename) return res.status(400).send('Filename required');
+
+    const filePath = path.join(__dirname, 'output', filename);
+    res.download(filePath, (err) => {
+        if (err) {
+            console.error('Download failed:', err);
+            res.status(500).send('File not found');
+        }
+    });
+});
 app.use(express.json());
 
 app.use('/api', compareRoute);
@@ -262,24 +319,392 @@ app.listen(PORT, () => {
 
 
 
-### File: src/output/results_1754774356418.csv
+### File: src/public/index.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veeve - Run Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Veeve Product Comparison</h1>
+        <div class="card">
+            <h2>Run Project</h2>
+            <form id="sheetForm">
+                <label for="sheetUrl">Google Sheets URL:</label>
+                <input 
+                    type="url" 
+                    id="sheetUrl" 
+                    placeholder="https://docs.google.com/spreadsheets/d/..." 
+                    required
+                >
+                <button type="submit">Run Comparison</button>
+            </form>
+            <div id="status" class="status"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
 
 ```
-"base_url","search_term","result_type","competitor_url","similarity_score","word_count","prodImage","compImage","json_ld_found","brand","model","gtin","price"
-"https://www.bettymills.com/mckesson-ecg-snap-electrode-monitoring-non-radiolucent-50-per-pack-87-50sg-mon1187707pk","McKesson ECG Snap Electrode, Monitoring Non-Radiolucent - McKesson 87-50SG PK - Betty Mills","organic","https://mms.mckesson.com/product/1187707/McKesson-Brand-87-50SG",0.953125,1442,"https://cf1.bettymills.com/store/images/product/500/MON1187707.JPG","https://imgcdn.mckesson.com/CumulusWeb/Images/High_Res/1187707_front.jpg","Yes","McKesson","87-50SG","",""
-"https://www.bettymills.com/mckesson-ecg-snap-electrode-monitoring-non-radiolucent-50-per-pack-87-50sg-mon1187707pk","McKesson ECG Snap Electrode, Monitoring Non-Radiolucent - McKesson 87-50SG PK - Betty Mills","organic","https://mms.mckesson.com/catalog?node=31078795+26096129+32387901&query=1&id=MTIqVDZuSnp3cWZpMmcqemZvcGtPQWhaLVZRRjVSY1BjOVJvNEh4Y185aFFscWtLTWVEMmdOT0RmQSo%2A&sort=Po","N/A",1359,"https://cf1.bettymills.com/store/images/product/500/MON1187707.JPG","https://mms.mckesson.com/assets/img/footer-bg-ele.svg","No","","","",""
-"https://www.bettymills.com/mckesson-ecg-snap-electrode-monitoring-non-radiolucent-50-per-pack-87-50sg-mon1187707pk","McKesson ECG Snap Electrode, Monitoring Non-Radiolucent - McKesson 87-50SG PK - Betty Mills","organic","https://mms.mckesson.com/product/1187710/McKesson-Brand-87-320",0.0625,1339,"https://cf1.bettymills.com/store/images/product/500/MON1187707.JPG","https://imgcdn.mckesson.com/CumulusWeb/Images/High_Res/1187710_ppkgleft.jpg","Yes","McKesson","87-320","",""
-"https://www.bettymills.com/mckesson-ecg-snap-electrode-monitoring-non-radiolucent-50-per-pack-87-50sg-mon1187707pk","McKesson ECG Snap Electrode, Monitoring Non-Radiolucent - McKesson 87-50SG PK - Betty Mills","organic","https://www.wholesalepoint.com/product/McKesson-87-50SG-PK.aspx?srsltid=AfmBOooTase3EABmxeMIIFPhLclMbdLlIVowpJ4asQfnpHerwv7TFTIt","N/A",6297,"https://cf1.bettymills.com/store/images/product/500/MON1187707.JPG","https://www.wholesalepoint.com/mm5/","No","","","",""
-"https://www.bettymills.com/guardian-helmets-autism-epilepsy-seizure-helmet-gh-4-02-gdhgh-4-02","Guardian Helmets Autism, Epilepsy & Seizure Helmet - Guardian Helmets GH-4-02 EA - Betty Mills","organic","https://archive.org/stream/NEW_1/NEW.txt&ld=20140121&ap=2&app=","N/A",327316,"https://cf1.bettymills.com/store/images/product/500/GDHGH-4-00.JPG","https://athena.archive.org/0.gif?kind=track_js&track_js_case=control&cache_bust=1200345741","No","","","",""
-"https://www.bettymills.com/ek-industries-histology-reagent-neutral-phosphate-buffered-formalin-fixative-10-percent-1-gal-4499-gal-mon887505ea","Histology Reagent Neutral Phosphate Buffered Formalin Fixative 10% 1 gal. - EK Industries 4499-GAL EA - Betty Mills","organic","https://www.avantorsciences.com/us/en/category/27703728/formalin",0,1,"https://cf1.bettymills.com/store/images/product/500/MON887505EA.JPG","https://digitalassets.avantorsciences.com/adaptivemedia/rendition?id=aad6bcccd75291201cb98df0ebf19f38d8b6e2d8&vid=c349f7513dd84533adee23ad4c3fb41e2df6ad10&prid=web&clid=SAPDAM","No","","","",""
-"https://www.bettymills.com/ek-industries-histology-reagent-neutral-phosphate-buffered-formalin-fixative-10-percent-1-gal-4499-gal-mon887505ea","Histology Reagent Neutral Phosphate Buffered Formalin Fixative 10% 1 gal. - EK Industries 4499-GAL EA - Betty Mills","organic","https://www.weberscientific.com/weber-scientific-formalin-10-neutral-buffered-solution?srsltid=AfmBOophQwg_Co5sEtw3WXIFS4phEHufVopfwSFiBON4NfhGyh1zmx1y",0.25,2383,"https://cf1.bettymills.com/store/images/product/500/MON887505EA.JPG","https://d163axztg8am2h.cloudfront.net/static/img/ca/18/6a60fc70047b8a8c77b25f57ad3a.webp","Yes","","","",""
-"https://www.bettymills.com/dickies-mens-industrial-color-block-short-sleeve-shirt-24bker-rg-3xl-vfi24bker-rg-3xl","Dickies Men's Industrial Color Block Short-Sleeve Shirt - Dickies 24BKER-RG-3XL EA - Betty Mills","organic","https://www.shopprudentialuniforms.com/men-39-s-industrial-color-block-short-45-sleeve-shirt/2727938/p","N/A",3868,"https://cf1.bettymills.com/store/images/product/500/VFI24BKER.JPG","https://test10.azureedge.net/images/42826/siteseal_gd_3_h_d_m.gif","No","","","",""
-"https://www.bettymills.com/dickies-mens-industrial-color-block-short-sleeve-shirt-24bker-rg-3xl-vfi24bker-rg-3xl","Dickies Men's Industrial Color Block Short-Sleeve Shirt - Dickies 24BKER-RG-3XL EA - Betty Mills","organic","https://www.usaworkuniforms.com/products/dickies-s-s-industrial-color-block-shirt-24?srsltid=AfmBOoqrtbEIakFDdV5xizt51LHZpIXx3wSahpW6PH-yoIId9CUCOO1o",0.671875,11727,"https://cf1.bettymills.com/store/images/product/500/VFI24BKER.JPG","http://www.usaworkuniforms.com/cdn/shop/products/24BKCH_800x.jpg?v=1748853577","No","","","",""
-"https://www.bettymills.com/dickies-mens-industrial-color-block-short-sleeve-shirt-24bker-rg-3xl-vfi24bker-rg-3xl","Dickies Men's Industrial Color Block Short-Sleeve Shirt - Dickies 24BKER-RG-3XL EA - Betty Mills","organic","https://www.classiccustomuniforms.com/men-39-s-industrial-color-block-short-45-sleeve-shirt/2727938/p","N/A",2504,"https://cf1.bettymills.com/store/images/product/500/VFI24BKER.JPG","https://verify.authorize.net/anetseal/images/secure90x72.gif","Yes","","","",""
-"https://www.bettymills.com/oximax-pulse-oximeter-sensor-oximax-neonatal-adult-maxn-mon447812ea","OxiMax Pulse Oximeter Sensor OxiMax Neonatal / Adult - Cardinal Health MAXN EA - Betty Mills","organic","https://www.rehabmart.com/product/nellcor-oxisensor-ii-oxygen-transducer-29770.html?srsltid=AfmBOoofibmpOvR0395AkVoXdl0aCkiXDQOgmK0GagfpeNDb0OC59gM_","N/A",2277,"https://cf1.bettymills.com/store/images/product/500/MON447812.JPG","https://image.rehabmart.com/include-mt/img-resize.asp?output=webp&path=/imagesfromrd/2017-06-30_13-31-40.jpg&newwidth=740&quality=80","Yes","McKesson","","","40.38"
-"https://www.bettymills.com/oximax-pulse-oximeter-sensor-oximax-neonatal-adult-maxn-mon447812ea","OxiMax Pulse Oximeter Sensor OxiMax Neonatal / Adult - Cardinal Health MAXN EA - Betty Mills","organic","https://www.blowoutmedical.com/oximax-max-n-neonatal-adult-oxygen-sensor.html?srsltid=AfmBOorGzl3dfTcH3DKQ8-bc3sgcHxW_yyIQfb_fA7N3iNlZE818SRUD",0,6330,"https://cf1.bettymills.com/store/images/product/500/MON447812.JPG","https://www.blowoutmedical.com/media/catalog/product/cache/4257d56322b92cd1475d45390f3d75e4/n/p/npbmaxn.png","Yes","Mallinckrodt","","",697.71
-"https://www.bettymills.com/oximax-pulse-oximeter-sensor-oximax-neonatal-adult-maxn-mon447812ea","OxiMax Pulse Oximeter Sensor OxiMax Neonatal / Adult - Cardinal Health MAXN EA - Betty Mills","organic","https://www.vitalitymedical.com/oximax-neonatal-adult-oxygen-sensor.html?srsltid=AfmBOoo20Y8Alp3BwWPPt2eJdsvbEgwac008ptX8r0LM_RjUXgyWz9rw",0,21101,"https://cf1.bettymills.com/store/images/product/500/MON447812.JPG","https://www.vitalitymedical.com/media/catalog/product/cache/de6c645b4ba0a0945c43c821ae2a0ac4/m/a/max-n.png","Yes","Mallinckrodt","","",22.25
-"https://www.bettymills.com/oximax-pulse-oximeter-sensor-oximax-neonatal-adult-maxn-mon447812ea","OxiMax Pulse Oximeter Sensor OxiMax Neonatal / Adult - Cardinal Health MAXN EA - Betty Mills","organic","https://honestmed.com/shop/Medical-Facility/Diagnostic-Instruments-Equipment/Oximeters/M114669?srsltid=AfmBOopnE1GQVbxJiJfPb0fjF95LuUnhOcOyLBM7ptYcvIZdbdDZfXWr",0,4235,"https://cf1.bettymills.com/store/images/product/500/MON447812.JPG","https://d3qbod4c9309eq.cloudfront.net/assets/images/instagram.webp","Yes","","","",""
+
+
+
+
+
+### File: src/public/results.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veeve - Results</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Veeve Product Comparison</h1>
+        <div class="card">
+            <h2>Comparison Results</h2>
+            <div class="actions">
+                <button id="backButton">New Comparison</button>
+                <button id="downloadButton">Download CSV</button>
+            </div>
+            <div class="table-container">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Base URL</th>
+                            <th>Competitor</th>
+                            <th>Similarity</th>
+                            <th>Brand</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+
+```
+
+
+
+
+
+### File: src/public/script.js
+
+```javascript
+document.addEventListener('DOMContentLoaded', () => {
+    // First Screen Logic
+    const sheetForm = document.getElementById('sheetForm');
+    if (sheetForm) {
+        sheetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sheetUrl = document.getElementById('sheetUrl').value;
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = 'Processing...';
+            statusDiv.className = 'status loading';
+
+            try {
+                // Extract sheet ID from URL
+                const sheetId = extractSheetId(sheetUrl);
+                if (!sheetId) throw new Error('Invalid Google Sheets URL');
+
+                // Call backend API
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'sheet',
+                        sheetId,
+                        format: 'json' // Explicitly request JSON response
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Server error');
+                }
+
+                // Parse JSON response
+                const data = await response.json();
+                if (!data || !data.filename) {
+                    throw new Error('Invalid response from server');
+                }
+
+                // Store results data for display
+                sessionStorage.setItem('comparisonData', JSON.stringify(data.data || []));
+                sessionStorage.setItem('comparisonFilename', data.filename);
+
+                // Redirect to results screen
+                window.location.href = 'results.html';
+
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+                statusDiv.className = 'status error';
+                console.error('Error:', error);
+            }
+        });
+    }
+
+    // Second Screen Logic
+    const resultsTable = document.getElementById('resultsTable');
+    if (resultsTable) {
+        const backButton = document.getElementById('backButton');
+        const downloadButton = document.getElementById('downloadButton');
+
+        // Get results data from session storage
+        const storedData = sessionStorage.getItem('comparisonData');
+        const filename = sessionStorage.getItem('comparisonFilename');
+
+        // Handle navigation
+        backButton.addEventListener('click', () => {
+            sessionStorage.removeItem('comparisonData');
+            sessionStorage.removeItem('comparisonFilename');
+            window.location.href = 'index.html';
+        });
+
+        // Handle download
+        downloadButton.addEventListener('click', () => {
+            if (filename) {
+                window.location.href = `/api/download/${filename}`;
+            }
+        });
+
+        // Load and display results
+        if (storedData) {
+            try {
+                const results = JSON.parse(storedData);
+                populateResultsTable(results);
+            } catch (error) {
+                console.error('Error parsing results:', error);
+            }
+        }
+    }
+});
+
+// Extract Google Sheet ID from URL
+function extractSheetId(url) {
+    const regex = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
+// Populate results table with data
+function populateResultsTable(results) {
+    if (!results || !Array.isArray(results)) return;
+
+    const tbody = document.querySelector('#resultsTable tbody');
+    if (!tbody) return;
+
+    // Clear existing rows
+    tbody.innerHTML = '';
+
+    // Add new rows
+    results.slice(0, 100).forEach(row => { // Limit to 100 rows for performance
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+            <td><a href="${row.base_url}" target="_blank">${truncateText(row.base_url, 30)}</a></td>
+            <td><a href="${row.competitor_url}" target="_blank">${truncateText(row.competitor_url, 30)}</a></td>
+            <td>${formatSimilarity(row.similarity_score)}</td>
+            <td>${row.brand || '-'}</td>
+            <td>${formatPrice(row.price)}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+// Helper to truncate long text
+function truncateText(text = '', maxLength) {
+    if (!text) return '-';
+    return text.length > maxLength
+        ? text.substring(0, maxLength) + '...'
+        : text;
+}
+
+// Format similarity score
+function formatSimilarity(score) {
+    if (score === undefined || score === null || score === 'N/A') return 'N/A';
+    if (typeof score === 'number') return `${Math.round(score * 100)}%`;
+    return score;
+}
+
+// Format price
+function formatPrice(price) {
+    if (!price) return '-';
+    if (typeof price === 'number') return `$${price.toFixed(2)}`;
+    if (typeof price === 'string' && price.match(/\d/)) return `$${price}`;
+    return price;
+}
+
+```
+
+
+
+
+
+### File: src/public/styles.css
+
+```css
+:root {
+    --primary: #4a6fa5;
+    --secondary: #6c757d;
+    --light: #f8f9fa;
+    --dark: #343a40;
+    --success: #28a745;
+    --danger: #dc3545;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--dark);
+    background-color: #f5f7fa;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1, h2 {
+    color: var(--primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    margin-top: 20px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+label {
+    font-weight: 600;
+}
+
+input {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+button {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #3a5a80;
+}
+
+.status {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.status.loading {
+    background-color: #e9f7fe;
+    color: #31708f;
+}
+
+.status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.actions {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+#downloadButton {
+    background-color: var(--success);
+}
+
+#downloadButton:hover {
+    background-color: #218838;
+}
+
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: var(--primary);
+    color: white;
+}
+
+tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+img {
+    max-width: 60px;
+    max-height: 60px;
+    display: block;
+    margin: 0 auto;
+}
+
 ```
 
 
@@ -290,7 +715,6 @@ app.listen(PORT, () => {
 
 ```javascript
 const express = require('express');
-
 const router = express.Router();
 const { readCSV, validateURL } = require('../utils/csvReader');
 const { scrapeBaseProduct } = require('../utils/baseScraper');
@@ -299,10 +723,11 @@ const scrapeCompetitor = require('../utils/competitorScraper');
 const { compareImages } = require('../utils/imageComparator');
 const { readPublicSheet } = require('../utils/publicSheetReader');
 const { extractLdAttributes } = require('../utils/jsonLdParser');
-const { generateCSV, createOutputData } = require('../utils/csvGenerator');
+const { generateCSV, createOutputData, cleanupOldFiles } = require('../utils/csvGenerator');
+const path = require("path");
+const fs = require("fs");
 
 router.post('/compare', async (req, res) => {
-
     try {
         console.log('[INIT] Received compare request');
         const globalStart = Date.now();
@@ -384,7 +809,6 @@ router.post('/compare', async (req, res) => {
                         }
                         console.log(`[SERP] ${serpResults.length} competitor URLs found for: ${url}`);
 
-
                         const competitors = await Promise.all(
                             serpResults.map(async (result) => {
                                 try {
@@ -406,12 +830,12 @@ router.post('/compare', async (req, res) => {
                             })
                         );
 
-
                         const urlTime = (Date.now() - urlStart) / 1000;
                         console.log(`[TIME] Total time for ${url} took ${urlTime}s`);
 
                         return { baseProduct, competitors };
                     } catch (error) {
+                        console.log(error)
                         console.error(`[ERROR] Failed processing URL: ${url}`, error.message);
                         return null;
                     }
@@ -432,20 +856,79 @@ router.post('/compare', async (req, res) => {
             return res.status(404).json({ error: 'No valid results generated' });
         }
 
-        const csvPath = generateCSV(outputData, `results_${Date.now()}.csv`);
-        console.log(`[DONE] CSV file created: ${csvPath}`);
+        try {
+            // Generate CSV file
+            const { filename, filePath } = await generateCSV(outputData);
 
-        console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
+            // Clean up old files (run in background)
+            if (typeof cleanupOldFiles === 'function') {
+                cleanupOldFiles().catch(console.error);
+            }
 
-        res.download(csvPath, (err) => {
-            if (err) console.error('[ERROR] Download failed:', err);
-        });
+            console.log(`[DONE] CSV file created: ${filePath}`);
+            console.log(`[TOTAL TIME] All URLs processed in ${(Date.now() - globalStart) / 1000}s`);
 
+            // Always return JSON with consistent structure
+            res.json({
+                success: true,
+                filename,
+                downloadUrl: `/api/download/${filename}`,
+                data: outputData // Send the actual data for immediate display
+            });
+
+        } catch (csvError) {
+            console.error('[ERROR] CSV generation failed:', csvError);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to generate CSV',
+                details: csvError.message
+            });
+        }
     } catch (error) {
         console.error('[ERROR] Internal server error:', error);
         res.status(500).json({
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+router.get('/download/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        const outputDir = path.join(__dirname, '../output');
+        const filePath = path.join(outputDir, filename);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                error: 'File not found'
+            });
+        }
+
+        // Set proper headers for file download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // Stream the file
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+            console.error('[ERROR] File stream error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to stream file'
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error('[ERROR] Download endpoint error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error'
         });
     }
 });
@@ -506,49 +989,104 @@ const extractUniversalAttributes = ($) => {
 ### File: src/utils/baseScraper.js
 
 ```javascript
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const randomUseragent = require('random-useragent');
 
-let browser;
+// Add stealth plugin
+puppeteer.use(StealthPlugin());
 
-const getBrowser = async () => {
-    if (!browser) {
-        browser = await puppeteer.launch({ headless: true });
-    }
-    return browser;
-};
+// Alternative delay function since waitForTimeout might not be available
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const scrapeBaseProduct = async (url) => {
-    const browser = await getBrowser();
-    const page = await browser.newPage();
-    await page.setUserAgent(process.env.USER_AGENT);
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    let browser;
+    try {
+        // Configure browser with evasion techniques
+        browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-blink-features=AutomationControlled'
+            ]
+        });
 
-    const image = await page.$eval('a.product-image.col-xs-12 img', img => img.src).catch(() => '');
-    const title = await page.title();
-    const metaDescription = await page.$eval('meta[name="description"]', el => el.content).catch(() => '');
-    const metaKeywords = await page.$eval('meta[name="keywords"]', el => el.content).catch(() => '');
+        const page = await browser.newPage();
 
-    await page.close();
+        // Set random user agent and realistic viewport
+        const userAgent = randomUseragent.getRandom();
+        await page.setUserAgent(userAgent);
+        await page.setViewport({
+            width: 1280 + Math.floor(Math.random() * 100),
+            height: 800 + Math.floor(Math.random() * 100)
+        });
 
-    return {
-        url,
-        title,
-        metaDescription,
-        metaKeywords,
-        image,
-        searchTerm: title,
-        name: title
-    };
-};
+        // Remove webdriver flag
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+            });
+        });
 
-const closeBrowser = async () => {
-    if (browser) {
-        await browser.close();
-        browser = null;
+        // Add random delay before navigation using alternative method
+        await delay(2000 + Math.random() * 3000);
+
+        // Configure navigation with retries
+        let retries = 3;
+        let lastError;
+
+        while (retries > 0) {
+            try {
+                await page.goto(url, {
+                    waitUntil: 'networkidle2',
+                    timeout: 60000,
+                    referer: 'https://www.google.com/'
+                });
+                break;
+            } catch (err) {
+                lastError = err;
+                retries--;
+                if (retries === 0) throw err;
+                await delay(5000); // Using our alternative delay function
+            }
+        }
+
+        // Wait for content with multiple fallbacks
+        try {
+            await page.waitForSelector('a.product-image.col-xs-12 img', {
+                timeout: 15000
+            });
+        } catch {
+            await page.waitForSelector('body', { timeout: 5000 }).catch(() => { });
+        }
+
+        // Scrape data with robust error handling
+        const result = {
+            url,
+            title: await page.title(),
+            metaDescription: await page.$eval('meta[name="description"]', el => el.content).catch(() => ''),
+            metaKeywords: await page.$eval('meta[name="keywords"]', el => el.content).catch(() => ''),
+            image: await page.$eval('a.product-image.col-xs-12 img', img => img.src)
+                .catch(() => page.$eval('img.product-image', img => img.src).catch(() => ''))
+        };
+
+        result.searchTerm = result.title;
+        result.name = result.title;
+
+        return result;
+    } catch (error) {
+        console.error(`Error scraping ${url}:`, error.message);
+        return null;
+    } finally {
+        if (browser) await browser.close();
     }
 };
 
-module.exports = { scrapeBaseProduct, closeBrowser };
+module.exports = { scrapeBaseProduct };
 
 ```
 
@@ -589,6 +1127,7 @@ const processBatch = async (urls, batchSize = 5) => {
                     competitors: competitors.sort((a, b) => b.similarity - a.similarity)
                 });
             } catch (error) {
+                console.log(error)
                 console.error(`Failed processing ${url}:`, error);
             }
         })
@@ -819,29 +1358,56 @@ const { Parser } = require('json2csv');
 const fs = require('fs');
 const path = require('path');
 
-const generateCSV = (data, filename = 'output.csv') => {
-    try {
-        const outputDir = path.join(__dirname, '../output');
-        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+const ensureOutputDirectory = () => {
+    const outputDir = path.join(__dirname, '../output');
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+    return outputDir;
+};
 
+const generateCSV = async (data, filename = `results_${Date.now()}.csv`) => {
+    try {
+        const outputDir = ensureOutputDirectory();
         const filePath = path.join(outputDir, filename);
-        const parser = new Parser();
+
+        const fields = [
+            { label: 'Base URL', value: 'base_url' },
+            { label: 'Search Term', value: 'search_term' },
+            { label: 'Result Type', value: 'result_type' },
+            { label: 'Competitor URL', value: 'competitor_url' },
+            { label: 'Similarity Score', value: 'similarity_score' },
+            { label: 'Word Count', value: 'word_count' },
+            { label: 'Product Image', value: 'prodImage' },
+            { label: 'Competitor Image', value: 'compImage' },
+            { label: 'JSON-LD Found', value: 'json_ld_found' },
+            { label: 'Brand', value: 'brand' },
+            { label: 'Model', value: 'model' },
+            { label: 'GTIN', value: 'gtin' },
+            { label: 'Price', value: 'price' }
+        ];
+
+        const opts = { fields };
+        const parser = new Parser(opts);
         const csv = parser.parse(data);
 
-        fs.writeFileSync(filePath, csv);
-        return filePath;
+        await fs.promises.writeFile(filePath, csv);
+        return { filename, filePath };
     } catch (error) {
-        throw new Error(`CSV generation failed: ${error.message}`);
+        console.error('CSV generation error:', error);
+        throw new Error(`Failed to generate CSV: ${error.message}`);
     }
 };
 
 const createOutputData = (baseProduct, competitors) => {
+    if (!competitors || !Array.isArray(competitors)) return [];
+
     return competitors
-        .filter(Boolean) // remove null/undefined competitors
+        .filter(comp => comp && typeof comp === 'object')
         .map(comp => ({
             base_url: baseProduct?.url || '',
-            search_term: baseProduct?.searchTerm || '',
-            result_type: comp?.type || '',
+            search_term: baseProduct?.searchTerm || baseProduct?.title || '',
+            result_type: comp?.type || 'organic',
             competitor_url: comp?.url || '',
             similarity_score: comp?.similarityScore ?? 'N/A',
             word_count: comp?.wordCount ?? '',
@@ -851,11 +1417,49 @@ const createOutputData = (baseProduct, competitors) => {
             brand: comp?.attributes?.brand || '',
             model: comp?.attributes?.model || '',
             gtin: comp?.attributes?.gtin || '',
-            price: comp?.attributes?.price || ''
+            price: formatPrice(comp?.attributes?.price) || ''
         }));
 };
 
-module.exports = { generateCSV, createOutputData };
+const formatPrice = (price) => {
+    if (!price) return '';
+    if (typeof price === 'string') {
+        // Clean price strings like "$12.99" or "USD 19.99"
+        return price.replace(/[^\d.,]/g, '');
+    }
+    if (typeof price === 'number') {
+        return price.toFixed(2);
+    }
+    return '';
+};
+
+const cleanupOldFiles = async (maxAgeHours = 24) => {
+    try {
+        const outputDir = ensureOutputDirectory();
+        const files = await fs.promises.readdir(outputDir);
+        const now = Date.now();
+        const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+
+        for (const file of files) {
+            if (file.startsWith('results_') && file.endsWith('.csv')) {
+                const filePath = path.join(outputDir, file);
+                const stats = await fs.promises.stat(filePath);
+                if (now - stats.mtimeMs > maxAgeMs) {
+                    await fs.promises.unlink(filePath);
+                    console.log(`Cleaned up old file: ${file}`);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('File cleanup error:', error);
+    }
+};
+
+module.exports = {
+    generateCSV,
+    createOutputData,
+    cleanupOldFiles
+};
 
 ```
 

@@ -5,6 +5,7 @@ const app = express();
 const compareRoute = require('./routes/compare');
 const path = require('path');
 const fs = require('fs');
+const csv = require('csv-parser'); // add this at the top
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -16,35 +17,33 @@ app.get('/api/results', async (req, res) => {
         if (!filename) return res.status(400).json({ error: 'Filename required' });
 
         const filePath = path.join(__dirname, 'output', filename);
-        const csvData = fs.readFileSync(filePath, 'utf8');
-
-        // Simple CSV to JSON conversion
-        const lines = csvData.split('\n');
-        const headers = lines[0].replace(/"/g, '').split(',');
-        const results = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            if (!lines[i]) continue;
-
-            const values = lines[i].split(',');
-            const row = {};
-
-            headers.forEach((header, j) => {
-                row[header] = values[j] ? values[j].replace(/"/g, '') : '';
-            });
-
-            results.push(row);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'File not found' });
         }
 
-        res.json(results);
+        const results = [];
+        const stream = fs.createReadStream(filePath)
+            .pipe(csv({
+                mapHeaders: ({ header }) => header.trim(), // Clean headers
+                mapValues: ({ value }) => value.trim()     // Clean values
+            }))
+            .on('data', (data) => results.push(data))
+            .on('end', () => {
+                res.json(results);
+            })
+            .on('error', (error) => {
+                console.error('CSV parsing error:', error);
+                res.status(500).json({ error: 'Failed to parse CSV' });
+            });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to load results' });
+        console.log(error)
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // Download endpoint
-app.get('/api/download', (req, res) => {
-    const filename = req.query.filename;
+app.get('/api/download/:filename', (req, res) => {
+    const filename = req.params.filename;
     if (!filename) return res.status(400).send('Filename required');
 
     const filePath = path.join(__dirname, 'output', filename);
