@@ -54,8 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Second Screen Logic
-    const resultsTable = document.getElementById('resultsTable');
-    if (resultsTable) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    if (resultsContainer) {
         const backButton = document.getElementById('backButton');
         const downloadButton = document.getElementById('downloadButton');
 
@@ -89,7 +89,7 @@ function extractSheetId(url) {
     return match ? match[1] : null;
 }
 
-// Load and display results in table
+// Load and display results in grouped layout
 async function loadResults(filename) {
     if (!filename) return;
 
@@ -99,25 +99,172 @@ async function loadResults(filename) {
         if (!response.ok) throw new Error('Failed to load results');
 
         const results = await response.json();
-        const tbody = document.querySelector('#resultsTable tbody');
+        const container = document.getElementById('resultsContainer');
 
-        // Populate table
-        results.forEach(row => {
-            const tr = document.createElement('tr');
+        // Group results by base URL
+        const groupedResults = groupResultsByBaseUrl(results);
+        
+        // Clear container
+        container.innerHTML = '';
 
-            tr.innerHTML = `
-                <td><a href="${row.base_url}" target="_blank">${truncateText(row.base_url, 30)}</a></td>
-                <td><a href="${row.competitor_url}" target="_blank">${truncateText(row.competitor_url, 30)}</a></td>
-                <td>${formatSimilarity(row.similarity_score)}</td>
-                <td>${row.brand || '-'}</td>
-                <td>${formatPrice(row.price)}</td>
-            `;
-
-            tbody.appendChild(tr);
+        // Create grouped sections
+        Object.keys(groupedResults).forEach(baseUrl => {
+            const groupSection = createGroupSection(baseUrl, groupedResults[baseUrl]);
+            container.appendChild(groupSection);
         });
 
     } catch (error) {
         console.error('Error loading results:', error);
+    }
+}
+
+// Group results by base URL
+function groupResultsByBaseUrl(results) {
+    const grouped = {};
+    
+    results.forEach(row => {
+        if (!grouped[row.base_url]) {
+            grouped[row.base_url] = [];
+        }
+        grouped[row.base_url].push(row);
+    });
+
+    // Sort each group by similarity score from high to low
+    Object.keys(grouped).forEach(baseUrl => {
+        grouped[baseUrl].sort((a, b) => {
+            const scoreA = parseFloat(a.similarity_score) || 0;
+            const scoreB = parseFloat(b.similarity_score) || 0;
+            return scoreB - scoreA; // High to low
+        });
+    });
+
+    return grouped;
+}
+
+// Create a group section for a base URL
+function createGroupSection(baseUrl, competitors) {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'group-section';
+    
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'group-header';
+    
+    const toggleButton = document.createElement('button');
+    toggleButton.className = 'toggle-button';
+    toggleButton.innerHTML = '−'; // Start expanded
+    toggleButton.onclick = () => toggleGroup(groupDiv, toggleButton);
+    
+    // Get product title from the first competitor's search_term or use a fallback
+    let productTitle = competitors[0]?.search_term || 'Product Title Not Available';
+    
+    // Remove trailing exclusion patterns like ' -site:bettymills.com'
+    productTitle = productTitle.replace(/\s*-\s*site:\S+$/, '').trim();
+    
+    const productTitleSpan = document.createElement('span');
+    productTitleSpan.className = 'product-title';
+    productTitleSpan.textContent = truncateText(productTitle, 80);
+    
+    const openIcon = document.createElement('a');
+    openIcon.href = baseUrl;
+    openIcon.target = '_blank';
+    openIcon.className = 'open-icon';
+    openIcon.innerHTML = '🔗';
+    openIcon.title = 'Open in new window';
+    
+    // Check if this is a failed match case
+    const isFailedMatch = competitors.length === 1 && competitors[0]?.result_type === 'no_matches';
+    
+    if (isFailedMatch) {
+        // Add warning indicator for failed matches
+        const warningIcon = document.createElement('span');
+        warningIcon.className = 'warning-icon';
+        warningIcon.innerHTML = '⚠️';
+        warningIcon.title = 'No matches found above similarity threshold';
+        groupHeader.appendChild(warningIcon);
+    }
+    
+    const competitorCount = document.createElement('span');
+    competitorCount.className = 'competitor-count';
+    
+    if (isFailedMatch) {
+        const totalChecked = competitors[0]?.total_competitors_checked || 0;
+        const threshold = competitors[0]?.similarity_threshold || 0.4;
+        competitorCount.textContent = `No matches (${totalChecked} checked, threshold: ${(threshold * 100).toFixed(0)}%)`;
+        competitorCount.className = 'competitor-count failed';
+    } else {
+        competitorCount.textContent = `${competitors.length} competitor${competitors.length !== 1 ? 's' : ''}`;
+    }
+    
+    groupHeader.appendChild(toggleButton);
+    groupHeader.appendChild(productTitleSpan);
+    groupHeader.appendChild(openIcon);
+    groupHeader.appendChild(competitorCount);
+    
+    const competitorsTable = document.createElement('table');
+    competitorsTable.className = 'competitors-table';
+    
+    if (isFailedMatch) {
+        // Create special message for failed matches
+        const tbody = document.createElement('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td colspan="4" class="no-matches-message">
+                <div class="no-matches-content">
+                    <p><strong>No matches found above similarity threshold</strong></p>
+                    <p>This product was compared against ${competitors[0]?.total_competitors_checked || 0} competitor URLs, but none met the minimum similarity threshold of ${((competitors[0]?.similarity_threshold || 0.4) * 100).toFixed(0)}%.</p>
+                    <p>Consider adjusting the similarity threshold or checking if the product information is accurate.</p>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        competitorsTable.appendChild(tbody);
+    } else {
+        // Create table header for successful matches
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th>Competitor URL</th>
+                <th>Similarity</th>
+                <th>Brand</th>
+                <th>Price</th>
+            </tr>
+        `;
+        competitorsTable.appendChild(thead);
+        
+        // Create table body
+        const tbody = document.createElement('tbody');
+        competitors.forEach(competitor => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><a href="${competitor.competitor_url}" target="_blank">${truncateText(competitor.competitor_url, 50)}</a></td>
+                <td>${formatSimilarity(competitor.similarity_score)}</td>
+                <td>${competitor.brand || '-'}</td>
+                <td>${formatPrice(competitor.price)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        competitorsTable.appendChild(tbody);
+    }
+    
+    groupDiv.appendChild(groupHeader);
+    groupDiv.appendChild(competitorsTable);
+    
+    return groupDiv;
+}
+
+// Toggle group expansion/collapse
+function toggleGroup(groupDiv, toggleButton) {
+    const competitorsTable = groupDiv.querySelector('.competitors-table');
+    const isExpanded = competitorsTable.style.display !== 'none';
+    
+    if (isExpanded) {
+        competitorsTable.style.display = 'none';
+        toggleButton.innerHTML = '+';
+        toggleButton.className = 'toggle-button collapsed';
+    } else {
+        competitorsTable.style.display = 'table';
+        toggleButton.innerHTML = '−';
+        toggleButton.className = 'toggle-button';
     }
 }
 

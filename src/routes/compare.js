@@ -80,10 +80,10 @@ router.post('/compare', async (req, res) => {
                         }
 
                         console.log(`[SCRAPE] Base product scraped: ${baseProduct.name || baseProduct.searchTerm}`);
-                        const excludeDomain = new URL(url).hostname;
+                        console.log(`[SEARCH] Using optimized search term: "${baseProduct.searchTerm}"`);
 
                         const serpStart = Date.now();
-                        const serpResults = await fetchSerpResults(baseProduct.searchTerm, excludeDomain);
+                        const serpResults = await fetchSerpResults(baseProduct.searchTerm);
                         const serpTime = (Date.now() - serpStart) / 1000;
                         console.log(`[TIME] SERP fetch for ${url} took ${serpTime}s`);
 
@@ -114,10 +114,37 @@ router.post('/compare', async (req, res) => {
                             })
                         );
 
+                        // Filter competitors by similarity threshold
+                        const similarityThreshold = parseFloat(process.env.SIMILARITY_THRESHOLD || 0.4);
+                        const filteredCompetitors = competitors.filter(comp => {
+                            if (!comp || comp.similarityScore === null || comp.similarityScore === undefined) {
+                                return false;
+                            }
+                            const meetsThreshold = comp.similarityScore >= similarityThreshold;
+                            if (!meetsThreshold) {
+                                console.log(`[FILTER] Excluding competitor ${comp.url} - similarity score ${comp.similarityScore} below threshold ${similarityThreshold}`);
+                            }
+                            return meetsThreshold;
+                        });
+
+                        console.log(`[FILTER] Filtered ${competitors.length} competitors to ${filteredCompetitors.length} above threshold ${similarityThreshold}`);
+
+                        // Track if this URL failed to produce any matches
+                        const hasMatches = filteredCompetitors.length > 0;
+                        if (!hasMatches) {
+                            console.log(`[WARN] No matches found for ${url} - all ${competitors.length} competitors below threshold ${similarityThreshold}`);
+                        }
+
                         const urlTime = (Date.now() - urlStart) / 1000;
                         console.log(`[TIME] Total time for ${url} took ${urlTime}s`);
 
-                        return { baseProduct, competitors };
+                        return { 
+                            baseProduct, 
+                            competitors: filteredCompetitors,
+                            hasMatches,
+                            totalCompetitors: competitors.length,
+                            similarityThreshold
+                        };
                     } catch (error) {
                         console.log(error)
                         console.error(`[ERROR] Failed processing URL: ${url}`, error.message);
@@ -131,14 +158,30 @@ router.post('/compare', async (req, res) => {
         }
 
         console.log('[STEP] Generating output CSV');
+        
+        // Log summary of filtering results
+        const totalCompetitors = allResults.reduce((sum, result) => 
+            sum + (result?.competitors?.length || 0), 0
+        );
+        const totalResults = allResults.length;
+        console.log(`[SUMMARY] Processed ${totalResults} base products with ${totalCompetitors} total competitors`);
+        
         const outputData = allResults.flatMap(result =>
-            result ? createOutputData(result.baseProduct, result.competitors) : []
+            result ? createOutputData(
+                result.baseProduct, 
+                result.competitors, 
+                result.hasMatches, 
+                result.totalCompetitors, 
+                result.similarityThreshold
+            ) : []
         );
 
         if (outputData.length === 0) {
             console.warn('[WARN] No valid output data generated');
             return res.status(404).json({ error: 'No valid results generated' });
         }
+        
+        console.log(`[CSV] Generated ${outputData.length} CSV rows after similarity filtering`);
 
         try {
             // Generate CSV file

@@ -29,7 +29,10 @@ const generateCSV = async (data, filename = `results_${Date.now()}.csv`) => {
             'brand',
             'model',
             'gtin',
-            'price'
+            'price',
+            'match_status',
+            'total_competitors_checked',
+            'similarity_threshold'
         ];
 
         const opts = {
@@ -51,26 +54,71 @@ const generateCSV = async (data, filename = `results_${Date.now()}.csv`) => {
 
 // ... rest of the file remains the same ...
 
-const createOutputData = (baseProduct, competitors) => {
-    if (!competitors || !Array.isArray(competitors)) return [];
-
-    return competitors
-        .filter(comp => comp && typeof comp === 'object')
-        .map(comp => ({
+const createOutputData = (baseProduct, competitors, hasMatches = true, totalCompetitors = 0, similarityThreshold = 0.4) => {
+    // If no competitors or no matches found, create a special row indicating failure
+    if (!competitors || !Array.isArray(competitors) || competitors.length === 0 || !hasMatches) {
+        return [{
             base_url: baseProduct?.url || '',
             search_term: baseProduct?.searchTerm || baseProduct?.title || '',
-            result_type: comp?.type || 'organic',
-            competitor_url: comp?.url || '',
-            similarity_score: comp?.similarityScore ?? 'N/A',
-            word_count: comp?.wordCount ?? '',
+            result_type: 'no_matches',
+            competitor_url: 'N/A',
+            similarity_score: 'N/A',
+            word_count: 'N/A',
             prodImage: baseProduct?.image || '',
-            compImage: comp?.compImage || '',
-            json_ld_found: Array.isArray(comp?.jsonLd) && comp.jsonLd.length > 0 ? 'Yes' : 'No',
-            brand: comp?.attributes?.brand || '',
-            model: comp?.attributes?.model || '',
-            gtin: comp?.attributes?.gtin || '',
-            price: formatPrice(comp?.attributes?.price) || ''
-        }));
+            compImage: 'N/A',
+            json_ld_found: 'N/A',
+            brand: 'N/A',
+            model: 'N/A',
+            gtin: 'N/A',
+            price: 'N/A',
+            match_status: 'failed',
+            total_competitors_checked: totalCompetitors,
+            similarity_threshold: similarityThreshold
+        }];
+    }
+
+    // Additional filtering to ensure only valid competitors with similarity scores are included
+    const validCompetitors = competitors.filter(comp => {
+        if (!comp || typeof comp !== 'object') return false;
+        
+        // Ensure similarity score exists and is a valid number
+        const similarityScore = comp.similarityScore;
+        if (similarityScore === null || similarityScore === undefined || 
+            typeof similarityScore !== 'number' || isNaN(similarityScore)) {
+            console.warn(`[CSV] Excluding competitor ${comp.url} - invalid similarity score: ${similarityScore}`);
+            return false;
+        }
+        
+        return true;
+    });
+
+    console.log(`[CSV] Processing ${validCompetitors.length} valid competitors for CSV generation`);
+
+    // Sort competitors by similarity score from high to low
+    const sortedCompetitors = validCompetitors.sort((a, b) => {
+        const scoreA = a.similarityScore || 0;
+        const scoreB = b.similarityScore || 0;
+        return scoreB - scoreA; // High to low
+    });
+
+    return sortedCompetitors.map(comp => ({
+        base_url: baseProduct?.url || '',
+        search_term: baseProduct?.searchTerm || baseProduct?.title || '',
+        result_type: comp?.type || 'organic',
+        competitor_url: comp?.url || '',
+        similarity_score: comp?.similarityScore?.toFixed(4) || 'N/A',
+        word_count: comp?.wordCount ?? '',
+        prodImage: baseProduct?.image || '',
+        compImage: comp?.compImage || '',
+        json_ld_found: Array.isArray(comp?.jsonLd) && comp.jsonLd.length > 0 ? 'Yes' : 'No',
+        brand: comp?.attributes?.brand || '',
+        model: comp?.attributes?.model || '',
+        gtin: comp?.attributes?.gtin || '',
+        price: formatPrice(comp?.attributes?.price) || '',
+        match_status: 'success',
+        total_competitors_checked: totalCompetitors,
+        similarity_threshold: similarityThreshold
+    }));
 };
 
 const formatPrice = (price) => {

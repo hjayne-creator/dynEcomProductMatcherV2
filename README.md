@@ -33,9 +33,10 @@ F --> G[CSV Report]
    - *Optimization:* Persistent browser instance reduces overhead
 
 3. **Competitor Discovery**  
-   - Serper.dev API for organic/shopping results
+   - SerpAPI for organic/shopping results with enhanced features
    - Domain exclusion to filter out self-references
-   - *Improvement Opportunity:* Add geographic targeting for localized results
+   - Geographic targeting and language localization support
+   - *Improvement Opportunity:* Add advanced filtering and result ranking
 
 4. **Competitor Analysis**  
    - Multi-layer image detection (JSON-LD > OG > Visual)

@@ -135,3 +135,143 @@ img {
     display: block;
     margin: 0 auto;
 }
+
+/* Grouped Results Layout Styles */
+.group-section {
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 20px;
+    background-color: var(--light);
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.group-header:hover {
+    background-color: #e9ecef;
+}
+
+.toggle-button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.toggle-button:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
+.toggle-button.collapsed {
+    color: var(--secondary);
+}
+
+.product-title {
+    color: var(--dark);
+    font-weight: 600;
+    flex: 1;
+    font-size: 16px;
+}
+
+.open-icon {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 18px;
+    padding: 5px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.open-icon:hover {
+    background-color: var(--primary);
+    color: white;
+    transform: scale(1.1);
+}
+
+.competitor-count {
+    color: var(--secondary);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.competitors-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.competitors-table th {
+    background-color: #f8f9fa;
+    color: var(--dark);
+    font-weight: 600;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.competitors-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.competitors-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.competitors-table a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.competitors-table a:hover {
+    text-decoration: underline;
+}
+
+.competitor-count.failed {
+    color: #d32f2f;
+    font-weight: 500;
+}
+
+.warning-icon {
+    margin-right: 8px;
+    font-size: 1.2em;
+    color: #f57c00;
+}
+
+.no-matches-message {
+    text-align: center;
+    padding: 20px;
+    background-color: #fff3e0;
+    border: 1px solid #ffb74d;
+    border-radius: 4px;
+}
+
+.no-matches-content p {
+    margin: 8px 0;
+    color: #e65100;
+}
+
+.no-matches-content p:first-child {
+    font-size: 1.1em;
+    margin-bottom: 12px;
+}

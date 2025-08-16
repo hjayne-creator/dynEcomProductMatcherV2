@@ -4,7 +4,11 @@
   "main": "src/app.js",
   "scripts": {
     "start": "nodemon src/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:prod": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:serpapi": "node test-serpapi.js",
+    "postinstall": "node -e \"if (process.env.NODE_ENV === 'production') { console.log('Skipping Puppeteer Chromium download in production'); process.exit(0); }\""
   },
   "keywords": [],
   "author": "",
@@ -27,5 +31,8 @@
     "random-useragent": "^0.5.0",
     "serpapi": "^2.2.1",
     "string-similarity": "^4.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }

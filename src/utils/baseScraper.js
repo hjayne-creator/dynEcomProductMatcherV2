@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const randomUseragent = require('random-useragent');
+const { createOptimizedSearchTerm, logSearchTermOptimization } = require('./searchTermOptimizer');
 
 puppeteer.use(StealthPlugin());
 
@@ -81,8 +82,13 @@ const scrapeBaseProduct = async (url) => {
             ).catch(() => '')
         };
 
-        result.searchTerm = result.title;
+        // Create optimized search term for competitor finding
+        const excludeDomain = new URL(url).hostname;
+        result.searchTerm = createOptimizedSearchTerm(result.title, excludeDomain);
         result.name = result.title;
+        
+        // Log the optimization process
+        logSearchTermOptimization(result.title, result.searchTerm, excludeDomain);
 
         return result;
     } catch (error) {
