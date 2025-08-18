@@ -6,6 +6,29 @@ const { getJson } = require('serpapi');
 const serpCache = new Map();
 const CACHE_TTL = 3600000; // 1 hour cache TTL
 
+// URL blocklist - paths that should be filtered out from search results
+const URL_BLOCKLIST = [
+    'youtube.com',
+    'ebay.com',
+    '/collections',
+    '/category'
+];
+
+// Function to check if a URL should be blocked
+const isUrlBlocked = (url) => {
+    if (!url) return true;
+    
+    return URL_BLOCKLIST.some(blockedPath => {
+        if (blockedPath.includes('://')) {
+            // Full domain check (e.g., youtube.com)
+            return url.includes(blockedPath);
+        } else {
+            // Path check (e.g., /collections, /category)
+            return url.includes(blockedPath);
+        }
+    });
+};
+
 const fetchSerpResults = async (searchTerm) => {
     // Validate searchTerm parameter
     if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim() === '') {
@@ -54,7 +77,7 @@ const fetchSerpResults = async (searchTerm) => {
 
         // Extract and format results
         const formattedResults = results.organic_results
-            .filter(result => result.link && !result.link.includes('youtube.com'))
+            .filter(result => result.link && !isUrlBlocked(result.link))
             .map(result => ({
                 url: result.link,
                 title: result.title,
