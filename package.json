@@ -19,6 +19,7 @@
   "license": "ISC",
   "description": "Product comparison tool with Zyte-powered scraping capabilities",
   "dependencies": {
+    "axios": "^1.11.0",
     "bottleneck": "^2.19.5",
     "cheerio": "^1.1.2",
     "csv-parser": "^3.2.0",
