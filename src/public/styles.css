@@ -73,6 +73,16 @@ button:hover {
     background-color: #3a5a80;
 }
 
+button:disabled {
+    background-color: var(--secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+button:disabled:hover {
+    background-color: var(--secondary);
+}
+
 .status {
     margin-top: 15px;
     padding: 10px;
@@ -83,6 +93,11 @@ button:hover {
 .status.loading {
     background-color: #e9f7fe;
     color: #31708f;
+}
+
+.status.success {
+    background-color: #d4edda;
+    color: #155724;
 }
 
 .status.error {
@@ -274,4 +289,49 @@ img {
 .no-matches-content p:first-child {
     font-size: 1.1em;
     margin-bottom: 12px;
+}
+
+/* Error handling styles */
+.error-message {
+    background-color: #fee;
+    border: 1px solid #fcc;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.error-message h3 {
+    color: #c33;
+    margin-top: 0;
+}
+
+.error-group {
+    border-left: 4px solid #f39c12;
+}
+
+.error-row {
+    background-color: #fff3cd;
+    color: #856404;
+    text-align: center;
+    font-style: italic;
+}
+
+/* Enhanced status styles */
+.status.error {
+    background-color: #fee;
+    border-color: #fcc;
+    color: #c33;
+}
+
+.status.loading {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    color: #1976d2;
+}
+
+.status.success {
+    background-color: #e8f5e8;
+    border-color: #4caf50;
+    color: #2e7d32;
 }

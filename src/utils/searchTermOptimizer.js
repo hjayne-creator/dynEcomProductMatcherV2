@@ -5,6 +5,31 @@
 const { ALL_RETAILER_BRANDS } = require('../config/retailerBrands');
 
 /**
+ * Removes duplicate words from a search term while preserving order
+ * @param {string} searchTerm - Search term to deduplicate
+ * @returns {string} - Search term with duplicate words removed
+ */
+const removeDuplicateWords = (searchTerm) => {
+    if (!searchTerm || typeof searchTerm !== 'string') {
+        return '';
+    }
+
+    // Split into words and filter out duplicates (case-insensitive)
+    const words = searchTerm.split(/\s+/);
+    const seen = new Set();
+    const uniqueWords = words.filter(word => {
+        const lowerWord = word.toLowerCase();
+        if (seen.has(lowerWord)) {
+            return false;
+        }
+        seen.add(lowerWord);
+        return true;
+    });
+
+    return uniqueWords.join(' ');
+};
+
+/**
  * Cleans and optimizes a product title for search
  * @param {string} title - Raw product title
  * @returns {string} - Cleaned search term
@@ -87,20 +112,23 @@ const createOptimizedSearchTerm = (title, excludeDomain) => {
     // Step 2: Remove retailer brand names
     searchTerm = removeRetailerBrands(searchTerm);
     
-    // Step 3: Apply character limit before domain exclusion (reserve space for -site: operator)
+    // Step 3: Remove duplicate words
+    searchTerm = removeDuplicateWords(searchTerm);
+    
+    // Step 4: Apply character limit before domain exclusion (reserve space for -site: operator)
     const maxProductTermsLength = 80 - 20; // Reserve ~20 chars for domain exclusion
     if (searchTerm.length > maxProductTermsLength) {
         searchTerm = searchTerm.substring(0, maxProductTermsLength).replace(/\s+\S*$/, '');
     }
     
-    // Step 4: Add domain exclusion if provided
+    // Step 5: Add domain exclusion if provided
     if (excludeDomain) {
         // Clean the domain (remove protocol and www)
         const cleanDomain = excludeDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
         searchTerm += ` -site:${cleanDomain}`;
     }
     
-    // Step 5: Final cleanup
+    // Step 6: Final cleanup
     searchTerm = searchTerm.replace(/\s+/g, ' ').trim();
     
     return searchTerm;
@@ -124,6 +152,7 @@ module.exports = {
     createOptimizedSearchTerm,
     cleanProductTitle,
     removeRetailerBrands,
+    removeDuplicateWords,
     logSearchTermOptimization,
     ALL_RETAILER_BRANDS
 };

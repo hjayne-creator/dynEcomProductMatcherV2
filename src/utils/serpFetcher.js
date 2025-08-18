@@ -1,115 +1,131 @@
 require('dotenv').config();
 
-const axios = require('axios');
+const { getJson } = require('serpapi');
 
-const fetchSerpResults = async (query) => {
-    // SerpAPI configuration
-    const apiKey = process.env.SERP_API_KEY;
-    if (!apiKey) {
-        console.error('SERP_API_KEY is not configured');
-        return [];
+// Simple in-memory cache for SERP results
+const serpCache = new Map();
+const CACHE_TTL = 3600000; // 1 hour cache TTL
+
+const fetchSerpResults = async (searchTerm) => {
+    // Validate searchTerm parameter
+    if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim() === '') {
+        console.error('[SERP] Invalid searchTerm provided:', searchTerm);
+        throw new Error('Invalid searchTerm: must be a non-empty string');
     }
 
-    // Build query parameters for SerpAPI
-    const params = {
-        api_key: apiKey,
-        engine: 'google',
-        q: query,
-        num: parseInt(process.env.ORGANIC_LIMIT || 6), // Number of organic results
-        gl: process.env.SEARCH_COUNTRY || 'us', // Country for search results
-        hl: process.env.SEARCH_LANGUAGE || 'en', // Language
-//        safe: 'active', // Safe search
-        device: 'desktop' // Device type
-    };
-
-    // Add shopping search if enabled
-    if (process.env.ENABLE_SHOPPING === 'true') {
-        params.shopping_results = parseInt(process.env.SHOPPING_LIMIT || 5);
+    if (!process.env.SERP_API_KEY) {
+        console.error('[SERP] SERP_API_KEY environment variable is required');
+        throw new Error('SERP_API_KEY environment variable is required');
     }
+
+    // Check cache first
+    const cacheKey = searchTerm.toLowerCase().trim();
+    const cached = serpCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        console.log(`[SERP] Using cached results for: "${searchTerm}"`);
+        return cached.results;
+    }
+
+    console.log(`[SERP] Fetching fresh results for: "${searchTerm}"`);
+    console.log(`[SERP] API Key configured: ${process.env.SERP_API_KEY ? 'Yes' : 'No'}`);
+    console.log(`[SERP] Search parameters: country=${process.env.SEARCH_COUNTRY || 'us'}, language=${process.env.SEARCH_LANGUAGE || 'en'}, limit=${process.env.ORGANIC_LIMIT || 8}`);
 
     try {
-        console.log(`[SERP] Fetching results for query: "${query}"`);
-        
-        const response = await axios.get('https://serpapi.com/search.json', {
-            params,
-            timeout: 30000, // 30 second timeout
-            headers: {
-                'User-Agent': process.env.USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+        const results = await getJson({
+            api_key: process.env.SERP_API_KEY,
+            q: searchTerm,
+            country: process.env.SEARCH_COUNTRY || 'us',
+            language: process.env.SEARCH_LANGUAGE || 'en',
+            num: parseInt(process.env.ORGANIC_LIMIT) || 8
         });
-
-        const result = response.data;
         
-        if (!result || result.error) {
-            console.error('[SERP] API Error:', result?.error || 'Unknown error');
+        console.log(`[SERP] Raw API response received:`, {
+            hasOrganicResults: !!results.organic_results,
+            organicResultsCount: results.organic_results ? results.organic_results.length : 0,
+            responseKeys: Object.keys(results || {})
+        });
+        
+        if (!results.organic_results) {
+            console.warn(`[SERP] No organic results found for: "${searchTerm}"`);
+            console.warn(`[SERP] Response structure:`, results);
             return [];
         }
 
-        console.log(`[SERP] Received ${result.organic_results?.length || 0} organic results, ${result.shopping_results?.length || 0} shopping results`);
+        // Extract and format results
+        const formattedResults = results.organic_results
+            .filter(result => result.link && !result.link.includes('youtube.com'))
+            .map(result => ({
+                url: result.link,
+                title: result.title,
+                snippet: result.snippet,
+                position: result.position
+            }))
+            .slice(0, parseInt(process.env.ORGANIC_LIMIT) || 8);
 
-        // Process organic results
-        const organicResults = (result.organic_results || [])
-            .filter(r => r.link)
-            .slice(0, parseInt(process.env.ORGANIC_LIMIT || 8))
-            .map(r => ({
-                type: 'organic',
-                url: r.link,
-                title: r.title || '',
-                snippet: r.snippet || '',
-                position: r.position || 0,
-                displayed_link: r.displayed_link || r.link
-            }));
+        // Cache the results
+        serpCache.set(cacheKey, {
+            results: formattedResults,
+            timestamp: Date.now()
+        });
 
-        // Process shopping results
-        const shoppingResults = (result.shopping_results || [])
-            .slice(0, parseInt(process.env.SHOPPING_LIMIT || 4))
-            .map(r => ({
-                type: 'shopping',
-                url: r.link || r.product_link || '',
-                title: r.title || r.product_title || '',
-                price: r.price || r.extracted_price || '',
-                source: r.source || '',
-                rating: r.rating || '',
-                reviews: r.reviews || '',
-                thumbnail: r.thumbnail || ''
-            }));
+        // Clean up old cache entries
+        cleanupCache();
 
-        // Process knowledge graph if available
-        const knowledgeGraph = result.knowledge_graph ? {
-            type: 'knowledge_graph',
-            title: result.knowledge_graph.title || '',
-            description: result.knowledge_graph.description || '',
-            attributes: result.knowledge_graph.attributes || {},
-            image: result.knowledge_graph.image || ''
-        } : null;
+        console.log(`[SERP] Found ${formattedResults.length} results for: "${searchTerm}"`);
+        return formattedResults;
 
-        // Combine all results
-        const allResults = [...organicResults, ...shoppingResults];
-        if (knowledgeGraph) {
-            allResults.unshift(knowledgeGraph);
-        }
-
-        console.log(`[SERP] Returning ${allResults.length} total results`);
-        return allResults;
-
-    } catch (err) {
-        if (err.response) {
-            // API error response
-            console.error('[SERP] API Error Response:', {
-                status: err.response.status,
-                statusText: err.response.statusText,
-                data: err.response.data
-            });
-        } else if (err.request) {
-            // Network error
-            console.error('[SERP] Network Error:', err.message);
-        } else {
-            // Other error
-            console.error('[SERP] Error:', err.message);
+    } catch (error) {
+        console.error(`[SERP] Error fetching results for "${searchTerm}":`, error.message);
+        console.error(`[SERP] Full error:`, error);
+        
+        // Return cached results if available, even if expired
+        if (cached) {
+            console.log(`[SERP] Returning expired cached results for: "${searchTerm}"`);
+            return cached.results;
         }
         
-        return [];
+        throw error;
     }
 };
 
-module.exports = fetchSerpResults;
+// Clean up old cache entries
+const cleanupCache = () => {
+    const now = Date.now();
+    const expiredKeys = [];
+    
+    for (const [key, value] of serpCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+            expiredKeys.push(key);
+        }
+    }
+    
+    expiredKeys.forEach(key => serpCache.delete(key));
+    
+    if (expiredKeys.length > 0) {
+        console.log(`[SERP] Cleaned up ${expiredKeys.length} expired cache entries`);
+    }
+};
+
+// Get cache statistics
+const getCacheStats = () => {
+    return {
+        size: serpCache.size,
+        keys: Array.from(serpCache.keys()),
+        oldestEntry: Math.min(...Array.from(serpCache.values()).map(v => v.timestamp)),
+        newestEntry: Math.max(...Array.from(serpCache.values()).map(v => v.timestamp))
+    };
+};
+
+// Clear cache manually
+const clearCache = () => {
+    const size = serpCache.size;
+    serpCache.clear();
+    console.log(`[SERP] Cache cleared, removed ${size} entries`);
+};
+
+module.exports = {
+    fetchSerpResults,
+    getCacheStats,
+    clearCache
+};

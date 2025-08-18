@@ -92,7 +92,6 @@ curl http://localhost:3000/api/results
 **Port Already in Use:**
 ```bash
 # Change the port in .env file
-PORT=3001
 
 # Or kill the process using port 3000
 lsof -ti:3000 | xargs kill -9

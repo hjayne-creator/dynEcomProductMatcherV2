@@ -13,3 +13,5 @@ const validateGTIN = (gtin) => {
     const calculatedCheck = (10 - (sum % 10)) % 10;
     return checkDigit === calculatedCheck;
 };
+
+module.exports = { validateGTIN };

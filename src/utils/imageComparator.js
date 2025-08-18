@@ -1,7 +1,21 @@
 const { imageHash } = require('image-hash');
 const { promisify } = require('util');
 const hashImage = promisify(imageHash);
-const hamming = require('hamming-distance');
+
+// Custom hamming distance function to replace the buggy package
+const calculateHammingDistance = (str1, str2) => {
+    if (str1.length !== str2.length) {
+        throw new Error('Strings must be of equal length for hamming distance calculation');
+    }
+    
+    let distance = 0;
+    for (let i = 0; i < str1.length; i++) {
+        if (str1[i] !== str2[i]) {
+            distance++;
+        }
+    }
+    return distance;
+};
 
 const compareImages = async (baseImageUrl, compImageUrl) => {
     if (!baseImageUrl || !compImageUrl) {
@@ -24,13 +38,14 @@ const compareImages = async (baseImageUrl, compImageUrl) => {
             return null;
         }
 
-        // Compute similarity
-        const similarity = 1 - (hamming(baseHash, compHash) / baseHash.length);
+        // Compute similarity using our custom hamming distance function
+        const hammingDistance = calculateHammingDistance(baseHash, compHash);
+        const similarity = 1 - (hammingDistance / baseHash.length);
 
         // Clamp to 0–1 to prevent negative or >1 values
         const safeSimilarity = Math.max(0, Math.min(1, similarity));
 
-        console.log(`Similarity score: ${safeSimilarity}`);
+        console.log(`Hash lengths: ${baseHash.length}, Hamming distance: ${hammingDistance}, Similarity score: ${safeSimilarity}`);
         return safeSimilarity;
     } catch (err) {
         console.error(`Image comparison failed: ${err.message}`);

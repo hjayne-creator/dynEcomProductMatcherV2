@@ -1,5 +1,9 @@
-//
-// Add to src/utils/attributeExtractor.js
+const ProductAttributeExtractor = require('./productAttributeExtractor');
+
+// Create a singleton instance
+const extractor = new ProductAttributeExtractor();
+
+// Backward compatibility function
 const extractUniversalAttributes = ($) => {
     const attrs = {};
 
@@ -32,4 +36,21 @@ const extractUniversalAttributes = ($) => {
     });
 
     return attrs;
+};
+
+// New comprehensive extraction function
+const extractAllProductAttributes = async (html, url) => {
+    return await extractor.extractAllAttributes(html, url);
+};
+
+// Legacy function for backward compatibility
+const extractBasicAttributes = ($) => {
+    return extractUniversalAttributes($);
+};
+
+module.exports = {
+    extractUniversalAttributes,
+    extractAllProductAttributes,
+    extractBasicAttributes,
+    ProductAttributeExtractor
 };

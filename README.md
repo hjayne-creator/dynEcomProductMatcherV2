@@ -1,107 +1,215 @@
-### Product Comparison Tool - Proof of Concept Documentation
+# 🚀 Product Comparison Tool - Zyte-Powered Edition
 
-#### 1. Overview
-This system identifies and compares competing products for e-commerce listings by:
-- Scraping base product details (title, image, metadata)
-- Fetching competitor listings from search results
-- Comparing product images using perceptual hashing
-- Extracting structured data (brand, model, price)
-- Generating CSV reports with match metrics
+A high-performance product comparison system that identifies and compares competing products for e-commerce listings with Zyte-powered scraping capabilities, intelligent caching, and comprehensive performance monitoring.
 
-#### 2. Technical Implementation
+## ✨ **Key Features**
 
-**Core Architecture:**
+### **🔍 Zyte-Powered Scraping System**
+- **Primary**: `httpResponseBody` (fast, best for most sites)
+- **Fallback**: `browserHtml` (JavaScript rendering for JS-heavy sites)
+- **Automatic fallback**: Seamlessly switches to JS rendering when needed
+- **Structured data extraction**: Leverages Zyte's AI-powered product data extraction
+- **High success rate**: Superior image and attribute extraction compared to traditional methods
+
+### **⚡ Batch Processing**
+- Process 5+ URLs concurrently with rate limiting
+- Intelligent batching with configurable batch sizes
+- Automatic retry and error handling
+- Progress tracking and logging
+
+### **💾 Smart Caching**
+- **SERP Results**: 1-hour cache TTL for search results
+- **Image Hashes**: 2-hour cache TTL for image comparisons
+- Automatic cache cleanup and memory management
+- Cache hit rate monitoring and optimization
+
+### **📊 Performance Monitoring**
+- Real-time performance metrics and analytics
+- Response time percentiles (P50, P95, P99)
+- Zyte method usage tracking and success rates
+- Web dashboard for system monitoring
+
+## 🏗️ **Architecture**
+
 ```mermaid
 graph LR
-A[Input URLs] --> B[Base Scraper]
-B --> C[SERP API]
-C --> D[Competitor Scraper]
-D --> E[Image Comparator]
-E --> F[Data Processor]
-F --> G[CSV Report]
+A[Input URLs] --> B[Batch Processor]
+B --> C[Zyte Scraper]
+C --> D[Image Comparator]
+D --> E[Data Processor]
+E --> F[CSV Report]
+G[Cache Layer] --> C
+G --> D
+H[Performance Monitor] --> B
+H --> C
+H --> D
 ```
 
-**Key Components:**
+## 🚀 **Performance Improvements**
 
-1. **Input Handling**  
-   - Accepts URLs from CSV, Google Sheets, or direct input
-   - *Design Choice:* Google Sheets integration enables live inventory updates without code changes
+- **Simplified Architecture**: Single scraping method with intelligent fallback
+- **Better Data Quality**: Zyte's AI-powered extraction vs. manual CSS selectors
+- **Reduced Maintenance**: No more site-specific selector updates
+- **Consistent Results**: Same extraction logic across all sites
+- **Higher Success Rate**: Superior image and attribute extraction
 
-2. **Base Product Scraping**  
-   - Uses Puppeteer for JS rendering support
-   - Extracts: Title, image, meta description
-   - *Optimization:* Persistent browser instance reduces overhead
+## 📋 **Installation**
 
-3. **Competitor Discovery**  
-   - SerpAPI for organic/shopping results with enhanced features
-   - Domain exclusion to filter out self-references
-   - Geographic targeting and language localization support
-   - *Improvement Opportunity:* Add advanced filtering and result ranking
+### **1. Clone and Install**
+```bash
+git clone <repository-url>
+cd product-compare
+npm install
+```
 
-4. **Competitor Analysis**  
-   - Multi-layer image detection (JSON-LD > OG > Visual)
-   - Perceptual hashing for image similarity
-   - *Design Choice:* Hybrid Cheerio/Puppeteer approach balances speed and accuracy
+### **2. Environment Configuration**
+```bash
+cp env.example .env
+```
 
-5. **Data Enrichment**  
-   - JSON-LD extraction for structured attributes
-   - Fallback to DOM scraping when structured data missing
-   - *Improvement Opportunity:* Add GTIN validation layer
+Required environment variables:
+```bash
+# SerpAPI Configuration (Required)
+SERP_API_KEY=your_serp_api_key_here
 
-6. **Output Generation**  
-   - CSV with similarity metrics and attributes
-   - Batch processing for scalability
-   - *Design Choice:* Includes image URLs for manual verification
+# Zyte API Configuration (Required)
+ZYTE_API_KEY=your_zyte_api_key_here
 
-#### 3. Sample Output Metrics
+# IMAGGA API Configuration (Required for enhanced image similarity)
+IMAGGA_API_KEY=your_imagga_api_key_here
+IMAGGA_API_SECRET=your_imagga_api_secret_here
+```
 
-| Column             | Purpose                          | Sample Value       |
-|--------------------|----------------------------------|--------------------|
-| similarity_score   | Image match confidence (0-1)     | 0.95               |
-| json_ld_found      | Structured data detection        | Yes                |
-| compImage          | Competitor image URL             | [URL]             |
-| price              | Extracted competitor price       | 22.25             |
+### **3. Get API Keys**
+- **SerpAPI**: [https://serpapi.com/](https://serpapi.com/) - Free tier available
+- **Zyte**: [https://app.zyte.com/](https://app.zyte.com/) - Paid service for high-quality scraping
+- **IMAGGA**: [https://imagga.com/](https://imagga.com/) - Free tier available
 
-#### 4. Optimization Choices
+## 🚀 **Usage**
 
-- **Concurrency Control**  
-  Batched processing (10 URLs/batch) prevents server overload while maintaining throughput
+### **Start the Server**
+```bash
+npm start
+```
 
-- **Error Resilience**  
-  Retry mechanism with exponential backoff handles transient network issues
+### **Compare Products**
+```bash
+curl -X POST http://localhost:3000/compare \
+  -H "Content-Type: application/json" \
+  -d '{
+    "baseUrl": "https://example.com/product1",
+    "competitorUrls": [
+      "https://competitor1.com/product1",
+      "https://competitor2.com/product1"
+    ]
+  }'
+```
 
-- **Resource Efficiency**  
-  Lightweight Cheerio parsing used where possible, reserving Puppeteer for critical JS pages
+### **Batch Processing**
+```bash
+curl -X POST http://localhost:3000/compare/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": [
+      {
+        "baseUrl": "https://example.com/product1",
+        "competitorUrls": ["https://competitor1.com/product1"]
+      },
+      {
+        "baseUrl": "https://example.com/product2",
+        "competitorUrls": ["https://competitor2.com/product2"]
+      }
+    ]
+  }'
+```
 
-#### 5. Scalability Pathways
+## 🔧 **Configuration**
 
-1. **Image Comparison**  
-   Current perceptual hashing could be enhanced with:
-   - Cloud vision APIs for angle-invariant matching
-   - Deduplication filters for same-product variations
+### **Zyte Scraping Options**
+```bash
+# Geographic targeting
+ZYTE_COUNTRY=US
 
-2. **Attribute Extraction**  
-   Could implement:
-   - ML-based price detection
-   - Cross-retailer SKU matching
-   - Automated GTIN validation
+# Budget limits
+ZYTE_DAILY_BUDGET=50
+ZYTE_HOURLY_LIMIT=100
+```
 
-3. **Deployment**  
-   Ready for containerization (Docker) with:
-   ```dockerfile
-   FROM node:18
-   WORKDIR /app
-   COPY package*.json ./
-   RUN npm install
-   COPY . .
-   CMD ["npm", "start"]
+### **Similarity Thresholds**
+```bash
+# Overall similarity threshold
+SIMILARITY_THRESHOLD=0.4
+
+# Image vs text weights
+IMAGE_WEIGHT=0.6
+TEXT_WEIGHT=0.4
+```
+
+## 📊 **Output**
+
+The system generates comprehensive CSV reports with:
+
+- **Base Product Data**: Title, image, brand, price, SKU, MPN, etc.
+- **Competitor Analysis**: Similarity scores, image comparisons, attribute matching
+- **Extraction Metadata**: Method used, confidence scores, processing timestamps
+- **Performance Metrics**: Response times, success rates, error tracking
+
+## 🆘 **Troubleshooting**
+
+### **Common Issues**
+
+1. **Zyte API Key Missing**
+   ```
+   Error: Zyte API key not configured
+   Solution: Set ZYTE_API_KEY in your .env file
    ```
 
-#### 6. Conclusion
-This PoC demonstrates a functional product comparison pipeline with:
-- 90%+ accuracy in image-based matching
-- Structured data extraction from top competitors
-- Configurable input/output workflows
-- Clear pathways for scaling to commercial volumes
+2. **Rate Limiting**
+   ```
+   Error: Too many requests
+   Solution: Increase ZYTE_HOURLY_LIMIT or add delays
+   ```
 
-The system provides actionable competitive intelligence while maintaining modularity for future enhancements.
+3. **Budget Exceeded**
+   ```
+   Error: Daily budget exceeded
+   Solution: Increase ZYTE_DAILY_BUDGET or monitor usage
+   ```
+
+### **Performance Optimization**
+
+- **Batch Size**: Adjust based on your Zyte plan limits
+- **Caching**: Monitor cache hit rates and adjust TTL values
+- **Similarity Thresholds**: Balance accuracy vs. result count
+
+## 📈 **Monitoring**
+
+### **Performance Dashboard**
+Access real-time metrics at `/metrics` endpoint:
+
+- Request success rates
+- Response time percentiles
+- Zyte method usage statistics
+- Cache performance metrics
+
+### **Log Analysis**
+Monitor logs for:
+- Scraping success/failure rates
+- Zyte method selection patterns
+- Performance bottlenecks
+- Error patterns and solutions
+
+## 🔮 **Future Enhancements**
+
+- **Advanced Zyte Features**: Custom extraction rules, geographic targeting
+- **Machine Learning**: Improved similarity scoring algorithms
+- **Real-time Updates**: Live product monitoring and alerts
+- **API Rate Optimization**: Intelligent request scheduling
+
+## 📄 **License**
+
+ISC License - see LICENSE file for details.
+
+---
+
+**Note**: This system now uses Zyte as the primary scraping method, providing superior data quality and reliability compared to traditional web scraping approaches.

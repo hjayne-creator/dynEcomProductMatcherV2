@@ -18,8 +18,11 @@ const extractJsonLd = (html) => {
     return jsonLd;
 };
 
-// In src/utils/jsonLdParser.js
+// Legacy functions kept for backward compatibility but deprecated
+// Use ProductAttributeExtractor.extractAllAttributes() instead
 const extractLdAttributes = (jsonLd) => {
+    console.warn('[DEPRECATED] extractLdAttributes is deprecated. Use ProductAttributeExtractor.extractAllAttributes() instead.');
+    
     const attributes = { brand: '', model: '', gtin: '', price: '' };
 
     jsonLd.forEach(ld => {
@@ -40,8 +43,11 @@ const extractLdAttributes = (jsonLd) => {
 
     return attributes;
 };
-// Enhance src/utils/jsonLdParser.js
+
+// Legacy function kept for backward compatibility but deprecated
 const parseProductSchema = (jsonLd) => {
+    console.warn('[DEPRECATED] parseProductSchema is deprecated. Use ProductAttributeExtractor.extractAllAttributes() instead.');
+    
     const product = jsonLd.find(item =>
         item['@type'] === 'Product' ||
         (Array.isArray(item['@type']) && item['@type'].includes('Product'))
@@ -57,4 +63,5 @@ const parseProductSchema = (jsonLd) => {
         image: product.image?.url || product.image
     };
 };
+
 module.exports = { extractJsonLd, extractLdAttributes, parseProductSchema };
