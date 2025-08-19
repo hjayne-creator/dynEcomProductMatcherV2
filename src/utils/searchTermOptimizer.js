@@ -116,7 +116,7 @@ const createOptimizedSearchTerm = (title, excludeDomain) => {
     searchTerm = removeDuplicateWords(searchTerm);
     
     // Step 4: Apply character limit before domain exclusion (reserve space for -site: operator)
-    const maxProductTermsLength = 80 - 20; // 100 total length; 80 for product. ~20 chars for domain exclusion; 
+    const maxProductTermsLength = 90 - 20; // 120 total length; 90 for product. ~20 chars for domain exclusion; 
     if (searchTerm.length > maxProductTermsLength) {
         searchTerm = searchTerm.substring(0, maxProductTermsLength).replace(/\s+\S*$/, '');
     }

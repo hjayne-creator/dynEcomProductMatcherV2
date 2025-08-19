@@ -10,6 +10,7 @@ const CACHE_TTL = 3600000; // 1 hour cache TTL
 const URL_BLOCKLIST = [
     'youtube.com',
     'ebay.com',
+    'pinterest.com',
     '/collections',
     '/category'
 ];
